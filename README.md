@@ -1,6 +1,8 @@
 pledger
 =======
 
+[![Build Status](https://img.shields.io/github/workflow/status/woodruffw/pledger/CI/master)](https://github.com/woodruffw/pledger/actions?query=workflow%3ACI)
+
 A small personal expense ledger.
 
 All `pledger` does is track monthly expenses.
@@ -16,7 +18,7 @@ cargo install pledger
 Or by building it locally:
 
 ```bash
-git clone https://github.com/woodruffw/baseperm && cd baseperm
+git clone https://github.com/woodruffw/pledger && cd pledger
 cargo build
 ```
 
