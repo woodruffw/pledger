@@ -5,6 +5,8 @@ authors = ["William Woodruff <william@yossarian.net>"]
 edition = "2018"
 description = "A small personal expense ledger"
 license = "MIT"
+readme = "README.md
+homepage = "https://github.com/woodruffw/pledger"
 
 [dependencies]
 chrono = "0.4.10"
