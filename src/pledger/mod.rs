@@ -521,12 +521,12 @@ mod tests {
             Err(Some("offset 9: premature tag ending".to_string()))
         );
         assert_eq!(
-            parse_entry("D 1 foo #/"),
-            Err(Some("offset 9: invalid tag character: /".to_string()))
+            parse_entry("D 1 foo #\x01"),
+            Err(Some("offset 9: invalid tag character: \x01".to_string()))
         );
         assert_eq!(
-            parse_entry("D 1 #foo #/"),
-            Err(Some("offset 10: invalid tag character: /".to_string()))
+            parse_entry("D 1 #foo #\x01"),
+            Err(Some("offset 10: invalid tag character: \x01".to_string()))
         );
 
         let entry = parse_entry("C 1.00 foo bar baz").unwrap();
