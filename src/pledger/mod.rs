@@ -305,7 +305,7 @@ fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
             (AtComment, AtTag) => {
                 if chr.is_ascii_whitespace() {
                     return Err(Some(format!("offset {}: premature tag ending", idx)));
-                } else if chr.is_ascii_alphanumeric() {
+                } else if chr.is_ascii_graphic() {
                     // Add the current character to both the comment and
                     // the most recent tag.
                     comment.push(chr);
@@ -328,7 +328,7 @@ fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
                     // transition.
                     prev_state = AtComment;
                     cur_state = AtComment;
-                } else if chr.is_ascii_alphanumeric() {
+                } else if chr.is_ascii_graphic() {
                     comment.push(chr);
                     tags.last_mut().unwrap().push(chr);
                 } else {

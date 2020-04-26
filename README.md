@@ -83,7 +83,7 @@ D 20,000.12 new car #essential
 ```
 
 Everything after the currency amount is the _comment_. The _comment_ can include _tags_, which
-begin with `#` and can be alphanumeric. `pledger` uses your tags to provide expense summaries;
-duplicate tags in a comment are removed.
+begin with `#` and can be alphanumeric + symbolic. `pledger` uses your tags to provide expense
+summaries; duplicate tags in a comment are removed.
 
 Empty lines or lines that begin with `#` are ignored.
