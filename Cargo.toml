@@ -8,6 +8,9 @@ license-file = "LICENSE"
 readme = "README.md"
 homepage = "https://github.com/woodruffw/pledger"
 
+[package.metadata.release]
+no-dev-version = true
+
 [dependencies]
 chrono = "0.4.11"
 clap = "2.33.1"
