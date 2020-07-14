@@ -1,0 +1,212 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# pledger-viz: visualize debits and credits with two charts:
+# 1. a "net" chart, showing the net debit and credits for each month
+# 2. a "tag" chart, showing debits and credits for each month stacked by tag
+
+require "erb"
+require "json"
+require "set"
+
+# NOTE: This is https://www.chartjs.org/samples/latest/charts/bar/stacked.html,
+# with some small modifications.
+HTML = <<~HTML
+  <!DOCTYPE html>
+  <html><head>
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <title>pledger</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-colorschemes@0.4.0/dist/chartjs-plugin-colorschemes.min.js"></script>
+    <style>
+    canvas {
+      -moz-user-select: none;
+      -webkit-user-select: none;
+      -ms-user-select: none;
+    }
+    </style>
+  <style type="text/css">/* Chart.js */
+  @keyframes chartjs-render-animation{from{opacity:.99}to{opacity:1}}.chartjs-render-monitor{animation:chartjs-render-animation 1ms}.chartjs-size-monitor,.chartjs-size-monitor-expand,.chartjs-size-monitor-shrink{position:absolute;direction:ltr;left:0;top:0;right:0;bottom:0;overflow:hidden;pointer-events:none;visibility:hidden;z-index:-1}.chartjs-size-monitor-expand>div{position:absolute;width:1000000px;height:1000000px;left:0;top:0}.chartjs-size-monitor-shrink>div{position:absolute;width:200%;height:200%;left:0;top:0}</style></head>
+
+  <body>
+    <div style="width: 75%"><div class="chartjs-size-monitor"><div class="chartjs-size-monitor-expand"><div class=""></div></div><div class="chartjs-size-monitor-shrink"><div class=""></div></div></div>
+      <canvas id="pledger-basic-canvas" style="display: block; width: 1425px; height: 712px;" width="1425" height="712" class="chartjs-render-monitor"></canvas>
+    </div>
+
+    <div style="width: 75%"><div class="chartjs-size-monitor"><div class="chartjs-size-monitor-expand"><div class=""></div></div><div class="chartjs-size-monitor-shrink"><div class=""></div></div></div>
+      <canvas id="pledger-tag-canvas" style="display: block; width: 1425px; height: 712px;" width="1425" height="712" class="chartjs-render-monitor"></canvas>
+    </div>
+
+    <script type="application/json" id="pledger-data-basic">
+      <%= pledger_data_basic %>
+    </script>
+    <script type="application/json" id="pledger-data-by-tag">
+      <%= pledger_data_tag %>
+    </script>
+    <script>
+      window.onload = function() {
+        var ctx = document.getElementById('pledger-basic-canvas').getContext('2d');
+        window.pledgerByNet = new Chart(ctx, {
+          type: 'bar',
+          data: JSON.parse(document.getElementById('pledger-data-basic').innerHTML),
+          options: {
+            title: {
+              display: true,
+              text: 'pledger: debits and credits, net only'
+            },
+            tooltips: {
+              mode: 'index',
+              intersect: false
+            },
+            responsive: true,
+            scales: {
+              xAxes: [{
+                stacked: true,
+              }],
+              yAxes: [{
+                stacked: true
+              }]
+            },
+            plugins: {
+              colorschemes: {
+                scheme: 'brewer.SetThree12'
+              }
+            }
+          }
+        });
+
+        var ctx = document.getElementById('pledger-tag-canvas').getContext('2d');
+        window.pledgerByTag = new Chart(ctx, {
+          type: 'bar',
+          data: JSON.parse(document.getElementById('pledger-data-by-tag').innerHTML),
+          options: {
+            title: {
+              display: true,
+              text: 'pledger: debits and credits, by tag'
+            },
+            tooltips: {
+              mode: 'index',
+              intersect: false
+            },
+            responsive: true,
+            scales: {
+              xAxes: [{
+                stacked: true,
+              }],
+              yAxes: [{
+                stacked: true
+              }]
+            },
+            plugins: {
+              colorschemes: {
+                scheme: 'brewer.SetThree12'
+              }
+            }
+          }
+        });
+      };
+    </script>
+
+
+
+  </body></html>
+
+HTML
+
+Dataset = Struct.new :label, :data do
+  def to_json(opts = nil)
+    to_h.to_json opts: opts
+  end
+end
+
+ChartData = Struct.new :labels, :datasets do
+  def to_json(opts = nil)
+    to_h.to_json opts: opts
+  end
+end
+
+def net_chart(ledgers)
+  datasets = %w[Debit Credit].map do |kind|
+    data = ledgers.map do |l|
+      sum = 0
+      l["entries"].each do |e|
+        next unless e["kind"] == kind
+
+        case e["kind"]
+        when "Debit" then sum -= e["amount"].first
+        when "Credit" then sum += e["amount"].first
+        end
+      end
+
+      sum
+    end
+
+    Dataset.new kind, data
+  end
+
+  chart = begin
+    labels = ledgers.map { |l| l["date"] }
+    ChartData.new labels, datasets
+  end
+
+  chart
+end
+
+def tag_chart(tags, ledgers)
+  datasets = tags.map do |tag|
+    data = ledgers.map do |l|
+      sum = 0
+      l["entries"].each do |e|
+        next unless e["tags"].include? tag
+
+        case e["kind"]
+        when "Debit" then sum -= e["amount"].first
+        when "Credit" then sum += e["amount"].first
+        end
+      end
+
+      sum
+    end
+
+    Dataset.new tag, data
+  end
+
+  chart = begin
+    labels = ledgers.map { |l| l["date"] }
+    ChartData.new labels, datasets
+  end
+
+  chart
+end
+
+pledger_dir = ARGV.first || ENV["PLEDGER_DIR"]
+
+if pledger_dir.nil? || !Dir.exist?(pledger_dir)
+  STDERR.puts <<~EOUSAGE
+    Usage: pledger-viz <pledger-directory>
+
+    Alternatively, export PLEDGER_DIR.
+  EOUSAGE
+  exit 1
+end
+
+ledgers = begin
+  ledger_files = Dir.new(pledger_dir).children.select { |l| l.match?(/^\d{4}-\d{2}$/) }.sort
+  ledger_files.map { |f| JSON.parse(`pledger -d #{f} -j #{pledger_dir}`) }
+end
+
+all_tags = begin
+  all_tags = Set.new
+  ledgers.each do |l|
+    l["entries"].each do |e|
+      all_tags.merge e["tags"]
+    end
+  end
+
+  all_tags.to_a
+end
+
+puts ERB.new(HTML).result_with_hash({
+                                      "pledger_data_basic" => net_chart(ledgers).to_json,
+                                      "pledger_data_tag" => tag_chart(all_tags, ledgers).to_json,
+                                    })
