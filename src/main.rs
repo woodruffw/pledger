@@ -1,7 +1,5 @@
 use chrono::Utc;
 use clap::{App, Arg};
-use env_logger;
-use serde_json;
 
 use std::process;
 

@@ -1,6 +1,5 @@
 use chrono::Utc;
 use lazy_static::lazy_static;
-use log;
 use phf::phf_map;
 use regex::Regex;
 use serde::ser::SerializeTuple;
@@ -44,11 +43,11 @@ pub static MONTH_MAP: phf::Map<&'static str, u8> = phf_map! {
 
 #[derive(Copy, Clone, Debug)]
 enum EntryParseState {
-    AtWhitespace,
-    AtEntryKind,
-    AtAmount,
-    AtComment,
-    AtTag,
+    Whitespace,
+    EntryKind,
+    Amount,
+    Comment,
+    Tag,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -152,12 +151,12 @@ pub fn edit_ledger(date: &str, ledger_dir: &str) -> Result<(), String> {
     let ledger_file = Path::new(ledger_dir).join(date);
     if let Ok(status) = Command::new(editor.clone()).arg(ledger_file).status() {
         if status.success() {
-            return Ok(());
+            Ok(())
         } else {
-            return Err(format!("EDITOR exited with: {}", status));
+            Err(format!("EDITOR exited with: {}", status))
         }
     } else {
-        return Err(format!("failed to execute EDITOR: {}", editor));
+        Err(format!("failed to execute EDITOR: {}", editor))
     }
 }
 
@@ -187,6 +186,7 @@ pub fn parse_ledger(
         }
     }
 
+    #[allow(clippy::redundant_field_names)]
     Ok(Ledger {
         date: String::from(date),
         entries: entries,
@@ -204,10 +204,12 @@ fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
     }
 
     // Parser transitions.
-    let (mut prev_state, mut cur_state) = (AtEntryKind, AtEntryKind);
+    let (mut prev_state, mut cur_state) = (EntryKind, EntryKind);
 
     // Parser state.
-    let mut kind: Option<EntryKind> = None;
+    // NOTE(ww): kind is (pointlessly) initialized to Debit because Rust isn't clever enough to see
+    // that we always initialize it below.
+    let mut kind = Debit;
     let mut amount = 0_u64;
     let mut in_decimal_place = false;
     let mut decimal_place = 0;
@@ -217,10 +219,10 @@ fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
     for (idx, chr) in line.char_indices() {
         log::debug!("parser transition: {:?} => {:?}", prev_state, cur_state);
         match (prev_state, cur_state) {
-            (AtEntryKind, AtEntryKind) => {
+            (EntryKind, EntryKind) => {
                 kind = match chr {
-                    'C' => Some(Credit),
-                    'D' => Some(Debit),
+                    'C' => Credit,
+                    'D' => Debit,
                     _ => {
                         return Err(Some(format!(
                             "offset {}: unexpected entry kind {}",
@@ -228,12 +230,12 @@ fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
                         )))
                     }
                 };
-                cur_state = AtWhitespace;
+                cur_state = Whitespace;
             }
-            (AtEntryKind, AtWhitespace) => {
+            (EntryKind, Whitespace) => {
                 if chr.is_ascii_whitespace() {
-                    prev_state = AtWhitespace;
-                    cur_state = AtAmount;
+                    prev_state = Whitespace;
+                    cur_state = Amount;
                 } else {
                     return Err(Some(format!(
                         "offset {}: expected whitespace, got {}",
@@ -241,16 +243,16 @@ fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
                     )));
                 }
             }
-            (AtWhitespace, AtAmount) => {
+            (Whitespace, Amount) => {
                 if chr.is_ascii_digit() {
                     amount *= 10;
                     amount += chr as u64 - '0' as u64;
-                    prev_state = AtAmount;
+                    prev_state = Amount;
                 } else {
                     return Err(Some(format!("offset {}: expected digit, got {}", idx, chr)));
                 }
             }
-            (AtAmount, AtAmount) => {
+            (Amount, Amount) => {
                 if chr.is_ascii_digit() {
                     if in_decimal_place {
                         decimal_place += 1;
@@ -285,8 +287,8 @@ fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
                     }
                     // NOTE(ww): More state transition cheating -- we've just consumed
                     // the whitespace, so there's no point in wasting another state on it.
-                    prev_state = AtComment;
-                    cur_state = AtComment;
+                    prev_state = Comment;
+                    cur_state = Comment;
                 } else {
                     return Err(Some(format!(
                         "offset {}: expected digit or whitespace, got {}",
@@ -294,15 +296,15 @@ fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
                     )));
                 }
             }
-            (AtComment, AtComment) => {
+            (Comment, Comment) => {
                 if chr == '#' {
                     let tag = String::from("#");
                     tags.push(tag);
-                    cur_state = AtTag;
+                    cur_state = Tag;
                 }
                 comment.push(chr);
             }
-            (AtComment, AtTag) => {
+            (Comment, Tag) => {
                 if chr.is_ascii_whitespace() {
                     return Err(Some(format!("offset {}: premature tag ending", idx)));
                 } else if chr.is_ascii_graphic() {
@@ -311,7 +313,7 @@ fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
                     comment.push(chr);
                     tags.last_mut().unwrap().push(chr);
 
-                    prev_state = AtTag;
+                    prev_state = Tag;
                 } else {
                     return Err(Some(format!(
                         "offset {}: invalid tag character: {}",
@@ -319,15 +321,15 @@ fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
                     )));
                 }
             }
-            (AtTag, AtTag) => {
+            (Tag, Tag) => {
                 if chr.is_ascii_whitespace() {
                     comment.push(chr);
 
                     // NOTE(ww): Again, a little cheating: we pretend we've already begun
-                    // the comment to avoid a completely duplicated (AtTag, AtComment)
+                    // the comment to avoid a completely duplicated (Tag, Comment)
                     // transition.
-                    prev_state = AtComment;
-                    cur_state = AtComment;
+                    prev_state = Comment;
+                    cur_state = Comment;
                 } else if chr.is_ascii_graphic() {
                     comment.push(chr);
                     tags.last_mut().unwrap().push(chr);
@@ -352,13 +354,13 @@ fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
     tags.dedup();
 
     match (prev_state, cur_state) {
-        (AtComment, AtComment) | (AtTag, AtTag) => Ok(Entry {
-            kind: kind.unwrap(),
-            amount: amount,
-            comment: comment,
-            tags: tags,
+        (Comment, Comment) | (Tag, Tag) => Ok(Entry {
+            kind,
+            amount,
+            comment,
+            tags,
         }),
-        (_, _) => Err(Some(format!("unexpected EOL; missing comment?"))),
+        (_, _) => Err(Some("unexpected EOL; missing comment?".into())),
     }
 }
 
