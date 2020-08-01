@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::Local;
 use clap::{App, Arg};
 
 use std::process;
@@ -6,7 +6,7 @@ use std::process;
 mod pledger;
 
 fn run() -> Result<(), String> {
-    let date = Utc::now().format("%Y-%m").to_string();
+    let date = Local::now().format("%Y-%m").to_string();
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
