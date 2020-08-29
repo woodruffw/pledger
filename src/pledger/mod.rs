@@ -453,18 +453,24 @@ mod tests {
         let current_year = Utc::now().format("%Y").to_string();
 
         assert_eq!(
-            parse_date(format!("{}-01", current_year).as_str()),
-            Ok(format!("{}-01", current_year))
+            parse_date(format!("{}-01", current_year).as_str()).unwrap(),
+            format!("{}-01", current_year)
         );
-        assert_eq!(parse_date("january"), Ok(format!("{}-01", current_year)));
-        assert_eq!(parse_date("jan"), Ok(format!("{}-01", current_year)));
-        assert_eq!(parse_date("1"), Ok(format!("{}-01", current_year)));
-        assert_eq!(parse_date("01"), Ok(format!("{}-01", current_year)));
-
-        assert_eq!(parse_date("13"), Err("month out of range: 13".to_string()));
         assert_eq!(
-            parse_date("not_a_real_month"),
-            Err("failed to parse supplied date: not_a_real_month".to_string())
+            parse_date("january").unwrap(),
+            format!("{}-01", current_year)
+        );
+        assert_eq!(parse_date("jan").unwrap(), format!("{}-01", current_year));
+        assert_eq!(parse_date("1").unwrap(), format!("{}-01", current_year));
+        assert_eq!(parse_date("01").unwrap(), format!("{}-01", current_year));
+
+        assert_eq!(
+            parse_date("13").unwrap_err().to_string(),
+            "month out of range: 13"
+        );
+        assert_eq!(
+            parse_date("not_a_real_month").unwrap_err().to_string(),
+            "failed to parse supplied date: not_a_real_month"
         );
     }
 
