@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use chrono::Utc;
 use lazy_static::lazy_static;
 use phf::phf_map;
@@ -14,6 +15,8 @@ use std::process::Command;
 
 use crate::pledger::EntryKind::*;
 use crate::pledger::EntryParseState::*;
+
+type LedgerLines = Box<dyn Iterator<Item = io::Result<String>>>;
 
 pub static MONTH_MAP: phf::Map<&'static str, u8> = phf_map! {
     "jan" => 1,
@@ -41,6 +44,10 @@ pub static MONTH_MAP: phf::Map<&'static str, u8> = phf_map! {
     "december" => 12,
 };
 
+lazy_static! {
+    static ref DATE_PATTERN: Regex = Regex::new(r"^\d{4}-(0[1-9]|1[0-2])$").unwrap();
+}
+
 #[derive(Copy, Clone, Debug)]
 enum EntryParseState {
     Whitespace,
@@ -65,7 +72,7 @@ struct Entry {
     tags: Vec<String>,
 }
 
-fn amount_serialize<S>(amount: &u64, s: S) -> Result<S::Ok, S::Error>
+fn amount_serialize<S>(amount: &u64, s: S) -> std::result::Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -90,11 +97,7 @@ pub struct Ledger {
     entries: Vec<Entry>,
 }
 
-pub fn parse_date(date: &str) -> Result<String, String> {
-    lazy_static! {
-        static ref DATE_PATTERN: Regex = Regex::new(r"^\d{4}-(0[1-9]|1[0-2])$").unwrap();
-    }
-
+pub fn parse_date(date: &str) -> Result<String> {
     // First: is our date already totally formed? If it is, just return it.
     if DATE_PATTERN.is_match(date) {
         return Ok(date.to_string());
@@ -114,38 +117,55 @@ pub fn parse_date(date: &str) -> Result<String, String> {
         Ok(month) if (1..=12).contains(&month) => {
             Ok(format!("{}-{:02}", Utc::now().format("%Y"), month))
         }
-        Ok(month) => Err(format!("month out of range: {}", month)),
-        Err(_) => Err(format!("failed to parse supplied date: {}", date)),
+        Ok(month) => Err(anyhow!("month out of range: {}", month)),
+        Err(_) => Err(anyhow!("failed to parse supplied date: {}", date)),
     }
 }
 
-pub fn read_ledger(
-    directory: &str,
-    date: &str,
-) -> Result<io::Lines<io::BufReader<fs::File>>, String> {
-    let directory = Path::new(directory);
+pub fn read_ledger(directory: &Path, date: &str) -> Result<LedgerLines> {
     if !directory.is_dir() {
-        return Err(format!("invalid ledger directory: {}", directory.display()));
+        return Err(anyhow!("invalid ledger directory: {}", directory.display()));
     }
 
     let ledger_file = directory.join(date);
     if !ledger_file.is_file() {
-        return Err(format!(
+        return Err(anyhow!(
             "missing requested ledger file: {}",
             ledger_file.display()
         ));
     }
 
     match fs::File::open(ledger_file) {
-        Ok(file) => Ok(io::BufReader::new(file).lines()),
-        Err(e) => Err(format!("ledger file read failed: {}", e)),
+        Ok(file) => Ok(Box::new(io::BufReader::new(file).lines())),
+        Err(e) => Err(anyhow!("ledger file read failed: {}", e)),
     }
 }
 
-pub fn edit_ledger(date: &str, ledger_dir: &str) -> Result<(), String> {
+pub fn read_ledgers(directory: &Path) -> Result<LedgerLines> {
+    let mut ledger_iters = vec![];
+    for entry in fs::read_dir(directory)? {
+        let entry = entry?.path();
+        let date = entry.file_name().unwrap().to_string_lossy();
+
+        if !DATE_PATTERN.is_match(&date) {
+            log::debug!("skipping non-date file: {:?}", entry);
+            continue;
+        }
+
+        ledger_iters.push(read_ledger(directory, &date)?);
+    }
+
+    Ok(ledger_iters
+        .into_iter()
+        .fold(Box::new(std::iter::empty()) as LedgerLines, |acc, e| {
+            Box::new(acc.chain(e))
+        }))
+}
+
+pub fn edit_ledger(date: &str, ledger_dir: &Path) -> Result<()> {
     let editor = match env::var("EDITOR") {
         Ok(e) => e,
-        Err(e) => return Err(format!("EDITOR lookup failed: {}", e)),
+        Err(e) => return Err(anyhow!("EDITOR lookup failed: {}", e)),
     };
 
     let ledger_file = Path::new(ledger_dir).join(date);
@@ -153,23 +173,20 @@ pub fn edit_ledger(date: &str, ledger_dir: &str) -> Result<(), String> {
         if status.success() {
             Ok(())
         } else {
-            Err(format!("EDITOR exited with: {}", status))
+            Err(anyhow!("EDITOR exited with: {}", status))
         }
     } else {
-        Err(format!("failed to execute EDITOR: {}", editor))
+        Err(anyhow!("failed to execute EDITOR: {}", editor))
     }
 }
 
 // TODO(ww): Maybe use PEGs or combinators here. Or maybe not. It's not a very complicated parser.
-pub fn parse_ledger(
-    date: &str,
-    ledger_lines: io::Lines<io::BufReader<fs::File>>,
-) -> Result<Ledger, String> {
+pub fn parse_ledger(date: &str, ledger_lines: LedgerLines) -> Result<Ledger> {
     let mut entries = Vec::new();
     for (idx, line) in ledger_lines.enumerate() {
         let line = match line {
             Ok(line) => line,
-            Err(e) => return Err(format!("ledger read failed: {}", e)),
+            Err(e) => return Err(anyhow!("ledger read failed: {}", e)),
         };
 
         match parse_entry(&line) {
@@ -180,7 +197,7 @@ pub fn parse_ledger(
             Err(o) => match o {
                 None => continue, // No error, just an empty line or comment.
                 Some(e) => {
-                    return Err(format!("parse error on line {}: {}", idx + 1, e));
+                    return Err(anyhow!("parse error on line {}: {}", idx + 1, e));
                 }
             },
         }
@@ -193,7 +210,7 @@ pub fn parse_ledger(
     })
 }
 
-fn parse_entry(line: &str) -> Result<Entry, Option<String>> {
+fn parse_entry(line: &str) -> std::result::Result<Entry, Option<String>> {
     lazy_static! {
         static ref LOOKS_LIKE_COMMENT: Regex = Regex::new(r"^\s*#.*$").unwrap();
     }
@@ -436,18 +453,24 @@ mod tests {
         let current_year = Utc::now().format("%Y").to_string();
 
         assert_eq!(
-            parse_date(format!("{}-01", current_year).as_str()),
-            Ok(format!("{}-01", current_year))
+            parse_date(format!("{}-01", current_year).as_str()).unwrap(),
+            format!("{}-01", current_year)
         );
-        assert_eq!(parse_date("january"), Ok(format!("{}-01", current_year)));
-        assert_eq!(parse_date("jan"), Ok(format!("{}-01", current_year)));
-        assert_eq!(parse_date("1"), Ok(format!("{}-01", current_year)));
-        assert_eq!(parse_date("01"), Ok(format!("{}-01", current_year)));
-
-        assert_eq!(parse_date("13"), Err("month out of range: 13".to_string()));
         assert_eq!(
-            parse_date("not_a_real_month"),
-            Err("failed to parse supplied date: not_a_real_month".to_string())
+            parse_date("january").unwrap(),
+            format!("{}-01", current_year)
+        );
+        assert_eq!(parse_date("jan").unwrap(), format!("{}-01", current_year));
+        assert_eq!(parse_date("1").unwrap(), format!("{}-01", current_year));
+        assert_eq!(parse_date("01").unwrap(), format!("{}-01", current_year));
+
+        assert_eq!(
+            parse_date("13").unwrap_err().to_string(),
+            "month out of range: 13"
+        );
+        assert_eq!(
+            parse_date("not_a_real_month").unwrap_err().to_string(),
+            "failed to parse supplied date: not_a_real_month"
         );
     }
 
