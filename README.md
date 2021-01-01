@@ -51,8 +51,9 @@ $ ls expenses/
 
 `pledger` ignores files that don't match the `YYYY-MM` format.
 
-By default, `pledger` reports expenses for the current month. To run `pledger` on a previous date,
-use `pledger -d <spec>`:
+By default, `pledger` reports expenses for the current month.
+
+To run `pledger` on a previous date, use `pledger -d <spec>` or `pledger -l`:
 
 ```bash
 # do a report on january 2017
@@ -62,7 +63,12 @@ pledger -d 2017-01 expenses/
 # do a report on april, then march
 pledger -d april expenses/
 pledger -d 3 expenses
+
+# -l/--last is a shortcut for last month's ledger
+pledger -l expenses/
 ```
+
+`pledger` can also generate a report for all records with `pledger --all`.
 
 By default, pledger outputs a plain text report. You can use the `--json` flag to output JSON
 instead, for consumption by other tools:
