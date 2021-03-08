@@ -57,13 +57,13 @@ enum EntryParseState {
     Tag,
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 enum EntryKind {
     Debit,
     Credit,
 }
 
-#[derive(Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Serialize)]
 struct Entry {
     kind: EntryKind,
     #[serde(serialize_with = "amount_serialize")]
@@ -95,6 +95,13 @@ fn amount_format(amount: &u64) -> String {
 pub struct Ledger {
     date: String,
     entries: Vec<Entry>,
+}
+
+impl Ledger {
+    pub fn filter(&mut self, tags: &[&str]) {
+        self.entries
+            .retain(|e| e.tags.iter().cloned().any(|t| tags.contains(&t.as_ref())));
+    }
 }
 
 pub fn parse_date(date: &str) -> Result<String> {
@@ -569,5 +576,32 @@ mod tests {
         let entry = parse_entry("C 1.00 #foo").unwrap();
         assert_eq!(entry.comment, "#foo".to_string());
         assert_eq!(entry.tags, vec!["#foo"]);
+    }
+
+    #[test]
+    fn test_parse_ledger() {
+        // NOTE(ww): as_bytes() makes us use `BufRead.lines` instead of `str.lines`.
+        let ledger = parse_ledger(
+            "01-01-1970",
+            Box::new("C 1.00 #foo\nD 1.00 #bar".as_bytes().lines()),
+        )
+        .unwrap();
+
+        assert_eq!(ledger.entries.len(), 2);
+        assert_eq!(ledger.date, "01-01-1970");
+    }
+
+    #[test]
+    fn test_filter_ledger() {
+        let mut ledger = parse_ledger(
+            "01-01-1970",
+            Box::new("C 1.00 #foo\nD 1.00 #bar".as_bytes().lines()),
+        )
+        .unwrap();
+
+        ledger.filter(&["#foo"]);
+
+        assert_eq!(ledger.entries.len(), 1);
+        assert_eq!(ledger.entries[0].kind, EntryKind::Credit);
     }
 }

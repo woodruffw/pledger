@@ -13,10 +13,10 @@ fn run() -> Result<()> {
         .version(env!("CARGO_PKG_VERSION"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .group(
-            ArgGroup::new("filter")
+            ArgGroup::new("selector")
                 .args(&["all", "date", "last"])
                 .required(false)
-                // NOTE(ww): -d/--date has a default value, so at least one member of filter
+                // NOTE(ww): -d/--date has a default value, so at least one member of selector
                 // is always present. Thus, we need `multiple` to keep clap from dying
                 // when it sees e.g. --all with an implicit --date.
                 .multiple(true),
@@ -58,6 +58,14 @@ fn run() -> Result<()> {
                 .multiple(false),
         )
         .arg(
+            Arg::new("filter")
+                .about("produce only ledger entries containing these tags (comma-separated)")
+                .short('f')
+                .long("filter")
+                .multiple(false)
+                .takes_value(true),
+        )
+        .arg(
             Arg::new("directory")
                 .about("ledger directory")
                 .index(1)
@@ -77,7 +85,7 @@ fn run() -> Result<()> {
 
     // NOTE(ww): Observe once again that `date` is always true, since it has a default.
     // This is pretty messy; there ought to be a better way to do this.
-    let ledger = match (all, date, last) {
+    let mut ledger = match (all, date, last) {
         (true, true, false) => pledger::parse_ledger("*", pledger::read_ledgers(&ledger_dir)?)?,
         (false, true, true) => {
             let last = now
@@ -104,6 +112,12 @@ fn run() -> Result<()> {
         }
         _ => return Err(anyhow!("conflicting uses of --all, --date, or --last")),
     };
+
+    if let Some(filter) = matches.value_of("filter") {
+        let filter: Vec<&str> = filter.split(',').collect();
+        ledger.filter(&filter);
+    }
+
     if matches.is_present("json") {
         println!("{}", serde_json::to_string(&ledger).unwrap());
     } else {
