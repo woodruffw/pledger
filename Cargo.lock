@@ -271,6 +271,7 @@ dependencies = [
  "env_logger",
  "lazy_static",
  "log",
+ "num-traits",
  "phf",
  "regex",
  "serde",
