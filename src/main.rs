@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
-use chrono::{Duration, Local};
+use chrono::{Datelike, Local, Month};
 use clap::{App, Arg, ArgGroup};
+use num_traits::FromPrimitive;
 
 use std::path::Path;
 use std::process;
@@ -88,8 +89,16 @@ fn run() -> Result<()> {
     let mut ledger = match (all, date, last) {
         (true, true, false) => pledger::parse_ledger("*", pledger::read_ledgers(&ledger_dir)?)?,
         (false, true, true) => {
+            let last_month = Month::from_u32(now.month())
+                .ok_or_else(|| {
+                    anyhow!(
+                        "unlikely failure converting {} into a chrono::Month",
+                        now.month()
+                    )
+                })?
+                .pred();
             let last = now
-                .checked_sub_signed(Duration::weeks(4))
+                .with_month(last_month.number_from_month())
                 .ok_or_else(|| anyhow!("datetime calculation for the previous month failed"))?;
 
             let date = last.format("%Y-%m").to_string();
