@@ -1,6 +1,6 @@
 [package]
 name = "pledger"
-version = "0.6.0"
+version = "0.6.1"
 authors = ["William Woodruff <william@yossarian.net>"]
 edition = "2018"
 description = "A small personal expense ledger"
