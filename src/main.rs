@@ -87,7 +87,7 @@ fn run() -> Result<()> {
     // NOTE(ww): Observe once again that `date` is always true, since it has a default.
     // This is pretty messy; there ought to be a better way to do this.
     let mut ledger = match (all, date, last) {
-        (true, true, false) => pledger::parse_ledger("*", pledger::read_ledgers(&ledger_dir)?)?,
+        (true, true, false) => pledger::parse_ledger("*", pledger::read_ledgers(ledger_dir)?)?,
         (false, true, true) => {
             let last_month = Month::from_u32(now.month())
                 .ok_or_else(|| {
@@ -105,19 +105,19 @@ fn run() -> Result<()> {
 
             // TODO(ww): Dedupe with below.
             if matches.is_present("edit") {
-                return pledger::edit_ledger(&date, &ledger_dir);
+                return pledger::edit_ledger(&date, ledger_dir);
             }
 
-            pledger::parse_ledger(&date, pledger::read_ledger(&ledger_dir, &date)?)?
+            pledger::parse_ledger(&date, pledger::read_ledger(ledger_dir, &date)?)?
         }
         (false, true, false) => {
             let date = pledger::parse_date(matches.value_of("date").unwrap())?;
 
             if matches.is_present("edit") {
-                return pledger::edit_ledger(&date, &ledger_dir);
+                return pledger::edit_ledger(&date, ledger_dir);
             }
 
-            pledger::parse_ledger(&date, pledger::read_ledger(&ledger_dir, &date)?)?
+            pledger::parse_ledger(&date, pledger::read_ledger(ledger_dir, &date)?)?
         }
         _ => return Err(anyhow!("conflicting uses of --all, --date, or --last")),
     };
