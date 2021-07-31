@@ -1,10 +1,10 @@
+use std::path::Path;
+use std::process;
+
 use anyhow::{anyhow, Result};
 use chrono::{Datelike, Local, Month};
 use clap::{App, Arg, ArgGroup};
 use num_traits::FromPrimitive;
-
-use std::path::Path;
-use std::process;
 
 mod pledger;
 
@@ -97,8 +97,15 @@ fn run() -> Result<()> {
                     )
                 })?
                 .pred();
+
+            log::debug!("{:?}", last_month);
+
+            // NOTE(ww): Without `with_day`, we'd naively jump backyards to an invalid date
+            // on some months. For example, July 31st would become June 31st, which isn't a real
+            // day. Every month should have a first day, so `with_day(1)` should always succeed.
             let last = now
-                .with_month(last_month.number_from_month())
+                .with_day(1)
+                .and_then(|d| d.with_month(last_month.number_from_month()))
                 .ok_or_else(|| anyhow!("datetime calculation for the previous month failed"))?;
 
             let date = last.format("%Y-%m").to_string();
