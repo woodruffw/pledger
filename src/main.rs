@@ -27,14 +27,14 @@ fn run() -> Result<()> {
                 .about("combine all ledgers")
                 .short('a')
                 .long("all")
-                .multiple(false),
+                .multiple_occurrences(false),
         )
         .arg(
             Arg::new("date")
                 .about("use a ledger by date")
                 .short('d')
                 .long("date")
-                .multiple(false)
+                .multiple_occurrences(false)
                 .default_value(&now.format("%Y-%m").to_string()),
         )
         .arg(
@@ -42,28 +42,28 @@ fn run() -> Result<()> {
                 .about("use the previous ledger")
                 .short('l')
                 .long("last")
-                .multiple(false),
+                .multiple_occurrences(false),
         )
         .arg(
             Arg::new("edit")
                 .about("edit the selected ledger")
                 .short('e')
                 .long("edit")
-                .multiple(false),
+                .multiple_occurrences(false),
         )
         .arg(
             Arg::new("json")
                 .about("output in JSON format")
                 .short('j')
                 .long("json")
-                .multiple(false),
+                .multiple_occurrences(false),
         )
         .arg(
             Arg::new("filter")
                 .about("produce only ledger entries containing these tags (comma-separated)")
                 .short('f')
                 .long("filter")
-                .multiple(false)
+                .multiple_occurrences(false)
                 .takes_value(true),
         )
         .arg(
@@ -71,7 +71,7 @@ fn run() -> Result<()> {
                 .about("ledger directory")
                 .index(1)
                 .required(true)
-                .multiple(false)
+                .multiple_occurrences(false)
                 .env("PLEDGER_DIR"),
         )
         .get_matches();
