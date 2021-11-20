@@ -15,7 +15,7 @@ fn run() -> Result<()> {
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .group(
             ArgGroup::new("selector")
-                .args(&["all", "date", "last"])
+                .args(&["all", "year", "date", "last"])
                 .required(false)
                 // NOTE(ww): -d/--date has a default value, so at least one member of selector
                 // is always present. Thus, we need `multiple` to keep clap from dying
@@ -28,6 +28,14 @@ fn run() -> Result<()> {
                 .short('a')
                 .long("all")
                 .multiple_occurrences(false),
+        )
+        .arg(
+            Arg::new("year")
+                .about("combine all ledgers from the given year")
+                .short('y')
+                .long("year")
+                .multiple_occurrences(false)
+                .takes_value(true),
         )
         .arg(
             Arg::new("date")
@@ -78,17 +86,24 @@ fn run() -> Result<()> {
 
     let ledger_dir = Path::new(matches.value_of("directory").unwrap());
 
-    let (all, date, last) = (
+    let (all, year, date, last) = (
         matches.is_present("all"),
+        matches.is_present("year"),
         matches.is_present("date"),
         matches.is_present("last"),
     );
 
     // NOTE(ww): Observe once again that `date` is always true, since it has a default.
     // This is pretty messy; there ought to be a better way to do this.
-    let mut ledger = match (all, date, last) {
-        (true, true, false) => pledger::parse_ledger("*", pledger::read_ledgers(ledger_dir)?)?,
-        (false, true, true) => {
+    let mut ledger = match (all, year, date, last) {
+        (true, false, true, false) => {
+            pledger::parse_ledger("*", pledger::read_all_ledgers(ledger_dir)?)?
+        }
+        (false, true, true, false) => {
+            let year = matches.value_of("year").unwrap();
+            pledger::parse_ledger(year, pledger::read_ledgers_for_year(ledger_dir, year)?)?
+        }
+        (false, false, true, true) => {
             let last_month = Month::from_u32(now.month())
                 .ok_or_else(|| {
                     anyhow!(
@@ -117,7 +132,7 @@ fn run() -> Result<()> {
 
             pledger::parse_ledger(&date, pledger::read_ledger(ledger_dir, &date)?)?
         }
-        (false, true, false) => {
+        (false, false, true, false) => {
             let date = pledger::parse_date(matches.value_of("date").unwrap())?;
 
             if matches.is_present("edit") {
@@ -126,7 +141,11 @@ fn run() -> Result<()> {
 
             pledger::parse_ledger(&date, pledger::read_ledger(ledger_dir, &date)?)?
         }
-        _ => return Err(anyhow!("conflicting uses of --all, --date, or --last")),
+        _ => {
+            return Err(anyhow!(
+                "conflicting uses of --all, --year, --date, or --last"
+            ))
+        }
     };
 
     if let Some(filter) = matches.value_of("filter") {

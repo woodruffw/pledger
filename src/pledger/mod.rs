@@ -148,7 +148,7 @@ pub fn read_ledger(directory: &Path, date: &str) -> Result<LedgerLines> {
     }
 }
 
-pub fn read_ledgers(directory: &Path) -> Result<LedgerLines> {
+pub fn read_all_ledgers(directory: &Path) -> Result<LedgerLines> {
     let mut ledger_iters = vec![];
     for entry in fs::read_dir(directory)? {
         let entry = entry?.path();
@@ -156,6 +156,31 @@ pub fn read_ledgers(directory: &Path) -> Result<LedgerLines> {
 
         if !DATE_PATTERN.is_match(&date) {
             log::debug!("skipping non-date file: {:?}", entry);
+            continue;
+        }
+
+        ledger_iters.push(read_ledger(directory, &date)?);
+    }
+
+    Ok(ledger_iters
+        .into_iter()
+        .fold(Box::new(std::iter::empty()) as LedgerLines, |acc, e| {
+            Box::new(acc.chain(e))
+        }))
+}
+
+pub fn read_ledgers_for_year(directory: &Path, year: &str) -> Result<LedgerLines> {
+    let mut ledger_iters = vec![];
+    for entry in fs::read_dir(directory)? {
+        let entry = entry?.path();
+        let date = entry.file_name().unwrap().to_string_lossy();
+
+        if !DATE_PATTERN.is_match(&date) {
+            log::debug!("skipping non-date file: {:?}", entry);
+            continue;
+        }
+
+        if !date.starts_with(&year) {
             continue;
         }
 

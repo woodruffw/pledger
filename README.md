@@ -68,7 +68,8 @@ pledger -d 3 expenses
 pledger -l expenses/
 ```
 
-`pledger` can also generate a report for all records with `pledger --all`.
+`pledger` can also generate a report for all records with `pledger --all`, or for a specific year
+with `pledger --year YEAR`.
 
 By default, pledger outputs a plain text report. You can use the `--json` flag to output JSON
 instead, for consumption by other tools:
