@@ -2,7 +2,7 @@
 name = "pledger"
 version = "0.7.0"
 authors = ["William Woodruff <william@yossarian.net>"]
-edition = "2018"
+edition = "2021"
 description = "A small personal expense ledger"
 license-file = "LICENSE"
 readme = "README.md"
