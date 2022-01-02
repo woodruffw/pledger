@@ -123,12 +123,19 @@ fn run() -> Result<()> {
 
             log::debug!("{:?}", last_month);
 
+            // If we've wrapped back around to December, correct the year as well.
+            let year = match last_month {
+                Month::December => NOW.year() - 1,
+                _ => NOW.year(),
+            };
+
             // NOTE(ww): Without `with_day`, we'd naively jump backyards to an invalid date
             // on some months. For example, July 31st would become June 31st, which isn't a real
             // day. Every month should have a first day, so `with_day(1)` should always succeed.
             let last = NOW
                 .with_day(1)
                 .and_then(|d| d.with_month(last_month.number_from_month()))
+                .and_then(|d| d.with_year(year))
                 .ok_or_else(|| anyhow!("datetime calculation for the previous month failed"))?;
 
             let date = last.format("%Y-%m").to_string();
