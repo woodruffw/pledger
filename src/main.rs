@@ -3,7 +3,7 @@ use std::process;
 
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Datelike, Local, Month};
-use clap::{App, Arg, ArgGroup};
+use clap::{Arg, ArgGroup, Command};
 use lazy_static::lazy_static;
 use num_traits::FromPrimitive;
 
@@ -14,8 +14,8 @@ lazy_static! {
     static ref NOW_FMT: String = NOW.format("%Y-%m").to_string();
 }
 
-fn app() -> App<'static> {
-    App::new(env!("CARGO_PKG_NAME"))
+fn app() -> Command<'static> {
+    Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .group(
