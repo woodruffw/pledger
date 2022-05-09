@@ -100,7 +100,7 @@ pub struct Ledger {
 impl Ledger {
     pub fn filter(&mut self, tags: &[&str]) {
         self.entries
-            .retain(|e| e.tags.iter().cloned().any(|t| tags.contains(&t.as_ref())));
+            .retain(|e| e.tags.iter().any(|t| tags.contains(&t.as_ref())));
     }
 }
 
