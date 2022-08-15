@@ -15,7 +15,7 @@ push = true
 
 [dependencies]
 anyhow = "1.0"
-chrono = "0.4.21"
+chrono = "0.4.22"
 clap = { version = "3.2.16", features = ["env"] }
 env_logger = "0.9"
 lazy_static = "1.4.0"
