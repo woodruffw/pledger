@@ -1,9 +1,9 @@
-use std::path::Path;
+use std::path::PathBuf;
 use std::process;
 
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Datelike, Local, Month};
-use clap::{Arg, ArgGroup, Command};
+use clap::{value_parser, Arg, ArgAction, ArgGroup, Command};
 use lazy_static::lazy_static;
 use num_traits::FromPrimitive;
 
@@ -14,7 +14,7 @@ lazy_static! {
     static ref NOW_FMT: String = NOW.format("%Y-%m").to_string();
 }
 
-fn app() -> Command<'static> {
+fn app() -> Command {
     Command::new(env!("CARGO_PKG_NAME"))
         .version(env!("CARGO_PKG_VERSION"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
@@ -32,59 +32,56 @@ fn app() -> Command<'static> {
                 .help("combine all ledgers")
                 .short('a')
                 .long("all")
-                .multiple_occurrences(false),
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("year")
                 .help("combine all ledgers from the given year")
                 .short('y')
                 .long("year")
-                .multiple_occurrences(false)
-                .takes_value(true),
+                .num_args(1),
         )
         .arg(
             Arg::new("date")
                 .help("use a ledger by date")
                 .short('d')
                 .long("date")
-                .multiple_occurrences(false)
-                .default_value(&NOW_FMT),
+                .default_value(<String as AsRef<str>>::as_ref(&NOW_FMT)),
         )
         .arg(
             Arg::new("last")
                 .help("use the previous ledger")
                 .short('l')
                 .long("last")
-                .multiple_occurrences(false),
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("edit")
                 .help("edit the selected ledger")
                 .short('e')
                 .long("edit")
-                .multiple_occurrences(false),
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("json")
                 .help("output in JSON format")
                 .short('j')
                 .long("json")
-                .multiple_occurrences(false),
+                .action(ArgAction::SetTrue),
         )
         .arg(
             Arg::new("filter")
                 .help("produce only ledger entries containing these tags (comma-separated)")
                 .short('f')
                 .long("filter")
-                .multiple_occurrences(false)
-                .takes_value(true),
+                .num_args(1),
         )
         .arg(
             Arg::new("directory")
                 .help("ledger directory")
                 .index(1)
                 .required(true)
-                .multiple_occurrences(false)
+                .value_parser(value_parser!(PathBuf))
                 .env("PLEDGER_DIR"),
         )
 }
@@ -92,13 +89,13 @@ fn app() -> Command<'static> {
 fn run() -> Result<()> {
     let matches = app().get_matches();
 
-    let ledger_dir = Path::new(matches.value_of("directory").unwrap());
+    let ledger_dir = matches.get_one::<PathBuf>("directory").unwrap();
 
     let (all, year, date, last) = (
-        matches.is_present("all"),
-        matches.is_present("year"),
-        matches.is_present("date"),
-        matches.is_present("last"),
+        matches.get_one::<bool>("all").unwrap(),
+        matches.contains_id("year"),
+        matches.contains_id("date"),
+        matches.get_one::<bool>("last").unwrap(),
     );
 
     // NOTE(ww): Observe once again that `date` is always true, since it has a default.
@@ -108,7 +105,7 @@ fn run() -> Result<()> {
             pledger::parse_ledger("*", pledger::read_all_ledgers(ledger_dir)?)?
         }
         (false, true, true, false) => {
-            let year = matches.value_of("year").unwrap();
+            let year = matches.get_one::<String>("year").unwrap();
             pledger::parse_ledger(year, pledger::read_ledgers_for_year(ledger_dir, year)?)?
         }
         (false, false, true, true) => {
@@ -141,16 +138,16 @@ fn run() -> Result<()> {
             let date = last.format("%Y-%m").to_string();
 
             // TODO(ww): Dedupe with below.
-            if matches.is_present("edit") {
+            if *matches.get_one::<bool>("edit").unwrap() {
                 return pledger::edit_ledger(&date, ledger_dir);
             }
 
             pledger::parse_ledger(&date, pledger::read_ledger(ledger_dir, &date)?)?
         }
         (false, false, true, false) => {
-            let date = pledger::parse_date(matches.value_of("date").unwrap())?;
+            let date = pledger::parse_date(matches.get_one::<String>("date").unwrap())?;
 
-            if matches.is_present("edit") {
+            if *matches.get_one::<bool>("edit").unwrap() {
                 return pledger::edit_ledger(&date, ledger_dir);
             }
 
@@ -163,12 +160,12 @@ fn run() -> Result<()> {
         }
     };
 
-    if let Some(filter) = matches.value_of("filter") {
+    if let Some(filter) = matches.get_one::<String>("filter") {
         let filter: Vec<&str> = filter.split(',').collect();
         ledger.filter(&filter);
     }
 
-    if matches.is_present("json") {
+    if *matches.get_one::<bool>("json").unwrap() {
         println!("{}", serde_json::to_string(&ledger).unwrap());
     } else {
         pledger::summarize(&ledger);
