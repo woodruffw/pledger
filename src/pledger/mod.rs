@@ -180,7 +180,7 @@ pub fn read_ledgers_for_year(directory: &Path, year: &str) -> Result<LedgerLines
             continue;
         }
 
-        if !date.starts_with(&year) {
+        if !date.starts_with(year) {
             continue;
         }
 
