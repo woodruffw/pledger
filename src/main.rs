@@ -20,7 +20,7 @@ fn app() -> Command {
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .group(
             ArgGroup::new("selector")
-                .args(&["all", "year", "date", "last"])
+                .args(["all", "year", "date", "last"])
                 .required(false)
                 // NOTE(ww): -d/--date has a default value, so at least one member of selector
                 // is always present. Thus, we need `multiple` to keep clap from dying
