@@ -15,13 +15,13 @@ push = true
 
 [dependencies]
 anyhow = "1.0"
-chrono = "0.4.23"
-clap = { version = "4.0.26", features = ["env"] }
+chrono = "0.4"
+clap = { version = "4.0", features = ["env"] }
 env_logger = "0.10"
-lazy_static = "1.4.0"
+lazy_static = "1.4"
 log = "0.4"
 num-traits = "0.2"
-phf = { version = "0.11.1", features = ["macros"] }
+phf = { version = "0.11", features = ["macros"] }
 regex = "1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
