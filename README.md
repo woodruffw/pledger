@@ -37,19 +37,19 @@ Alternatively, you can use `PLEDGER_DIR` to pass the directory:
 PLEDGER_DIR=expenses/ pledger
 ```
 
-Ledgers are stored as structured text files with the filename `YYYY-MM`. Read about the `pledger`
+Ledgers are stored as structured text files with the filename `YYYY-MM.ledger`. Read about the `pledger`
 format [below](#ledger-format).
 
 For example, here's a listing for a directory with three months of expenses:
 
 ```bash
 $ ls expenses/
-2018-02
-2020-01
-2020-02
+2018-02.ledger
+2020-01.ledger
+2020-02.ledger
 ```
 
-`pledger` ignores files that don't match the `YYYY-MM` format.
+`pledger` ignores files that don't match the `YYYY-MM.ledger` format.
 
 By default, `pledger` reports expenses for the current month.
 
