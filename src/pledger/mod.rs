@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::env;
+use std::ffi::OsStr;
 use std::fs;
 use std::io::{self, BufRead};
 use std::path::Path;
@@ -134,7 +135,7 @@ pub fn read_ledger(directory: &Path, date: &str) -> Result<LedgerLines> {
         return Err(anyhow!("invalid ledger directory: {}", directory.display()));
     }
 
-    let ledger_file = directory.join(date);
+    let ledger_file = directory.join(format!("{}.ledger", date));
     if !ledger_file.is_file() {
         return Err(anyhow!(
             "missing requested ledger file: {}",
@@ -152,7 +153,17 @@ pub fn read_all_ledgers(directory: &Path) -> Result<LedgerLines> {
     let mut ledger_iters = vec![];
     for entry in fs::read_dir(directory)? {
         let entry = entry?.path();
-        let date = entry.file_name().unwrap().to_string_lossy();
+
+        let date: String = match entry.extension().and_then(OsStr::to_str) {
+            Some("ledger") => entry
+                .with_extension("")
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
+            Some(_) => continue,
+            None => continue,
+        };
 
         if !DATE_PATTERN.is_match(&date) {
             log::debug!("skipping non-date file: {:?}", entry);
@@ -173,7 +184,16 @@ pub fn read_ledgers_for_year(directory: &Path, year: &str) -> Result<LedgerLines
     let mut ledger_iters = vec![];
     for entry in fs::read_dir(directory)? {
         let entry = entry?.path();
-        let date = entry.file_name().unwrap().to_string_lossy();
+        let date: String = match entry.extension().and_then(OsStr::to_str) {
+            Some("ledger") => entry
+                .with_extension("")
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned(),
+            Some(_) => continue,
+            None => continue,
+        };
 
         if !DATE_PATTERN.is_match(&date) {
             log::debug!("skipping non-date file: {:?}", entry);
