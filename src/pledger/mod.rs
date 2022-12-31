@@ -137,7 +137,7 @@ pub fn read_ledger(directory: &Path, date: &str) -> Result<LedgerLines> {
         return Err(anyhow!("invalid ledger directory: {}", directory.display()));
     }
 
-    let ledger_file = directory.join(format!("{}.ledger", date));
+    let ledger_file = directory.join(format!("{date}.ledger"));
     if !ledger_file.is_file() {
         return Err(anyhow!(
             "missing requested ledger file: {}",
@@ -222,7 +222,7 @@ pub fn edit_ledger(date: &str, ledger_dir: &Path) -> Result<()> {
         Err(e) => return Err(anyhow!("EDITOR lookup failed: {}", e)),
     };
 
-    let ledger_file = Path::new(ledger_dir).join(date);
+    let ledger_file = Path::new(ledger_dir).join(format!("{date}.ledger"));
     if let Ok(status) = Command::new(editor.clone()).arg(ledger_file).status() {
         if status.success() {
             Ok(())
