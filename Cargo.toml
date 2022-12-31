@@ -9,7 +9,6 @@ readme = "README.md"
 homepage = "https://github.com/woodruffw/pledger"
 
 [package.metadata.release]
-dev-version = false
 publish = false # handled by GitHub Actions
 push = true
 
