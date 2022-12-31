@@ -2,7 +2,7 @@ pledger
 =======
 
 ![license](https://raster.shields.io/badge/license-MIT%20with%20restrictions-green.png)
-[![Build Status](https://img.shields.io/github/workflow/status/woodruffw/pledger/CI/master)](https://github.com/woodruffw/pledger/actions?query=workflow%3ACI)
+[![CI](https://github.com/woodruffw/pledger/actions/workflows/ci.yml/badge.svg)](https://github.com/woodruffw/pledger/actions/workflows/ci.yml)
 
 A small personal expense ledger.
 
