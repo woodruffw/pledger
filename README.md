@@ -4,6 +4,10 @@ pledger
 ![license](https://raster.shields.io/badge/license-MIT%20with%20restrictions-green.png)
 [![CI](https://github.com/woodruffw/pledger/actions/workflows/ci.yml/badge.svg)](https://github.com/woodruffw/pledger/actions/workflows/ci.yml)
 
+> [!WARNING]
+>
+> This project has been archived and is not being actively maintained.
+
 A small personal expense ledger.
 
 All `pledger` does is track monthly expenses.
